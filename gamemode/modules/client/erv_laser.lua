@@ -4,38 +4,40 @@
 print("[ERV Laser] Module Loaded")
 
 if CLIENT then
+    local beamMat = Material("effects/laser1")
     local laserColor = Color(255, 0, 0, 255)
-    local beamMat = Material("cable/physbeam")
-
     hook.Add("PostDrawTranslucentRenderables", "ERV_DrawLaser", function()
         local ply = LocalPlayer()
         if not IsValid(ply) or not ply:Alive() then return end
         local wep = ply:GetActiveWeapon()
         if not IsValid(wep) then return end
 
-        -- Try to find the muzzle attachment
+        -- Get muzzle position
         local attachID = wep:LookupAttachment("muzzle") or wep:LookupAttachment("1") or 1
         local attach = wep:GetAttachment(attachID)
         if not attach then return end
 
         local startPos = attach.Pos
-        local shootDir = attach.Ang:Forward()
-        local targetPos = startPos + shootDir * 2048
 
-        -- Trace to world
-        local tr = util.TraceLine({
-            start = startPos,
-            endpos = targetPos,
-            filter = {ply, wep},
+        -- Trace from camera (eye position) in view direction
+        local eyePos = ply:EyePos()
+        local aimDir = ply:EyeAngles():Forward()
+
+        local trace = util.TraceLine({
+            start = eyePos,
+            endpos = eyePos + aimDir * 10000,
+            filter = ply,
             mask = MASK_SHOT_HULL
         })
-        targetPos = tr.HitPos
 
-        -- Draw the beam
+        local targetPos = trace.HitPos
+
+        -- Draw laser from muzzle to aim point
         render.SetMaterial(beamMat)
         render.StartBeam(2)
             render.AddBeam(startPos, 1, 0, laserColor)
             render.AddBeam(targetPos, 1, 1, laserColor)
         render.EndBeam()
     end)
+
 end

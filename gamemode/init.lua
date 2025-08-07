@@ -25,7 +25,7 @@ hook.Add("CanTool", "ERV_DisableTools", function() return false end)
 -- Set movement speeds
 function GM:PlayerSpawn(ply)
     self.BaseClass.PlayerSpawn(self, ply)
-    ply:SetWalkSpeed(100)
+    ply:SetWalkSpeed(65)
     ply:SetRunSpeed(150)
     ply:SetJumpPower(0)
 end
@@ -51,25 +51,74 @@ net.Receive("ERV_ReadyWeapon", function(len, ply)
         ply:SetWalkSpeed(0)
         ply:SetRunSpeed(0)
         local wep = ply:GetActiveWeapon()
-        if IsValid(wep) then wep:SetHoldType("ar2") end
+        -- if IsValid(wep) then wep:SetHoldType("ar2") end
     else
         local speeds = defaultSpeeds[ply]
         ply:SetWalkSpeed(speeds.walk)
         ply:SetRunSpeed(speeds.run)
         local wep = ply:GetActiveWeapon()
-        if IsValid(wep) then wep:SetHoldType("passive") end
+        if IsValid(wep) then wep:SetHoldType("none") end
     end
 end)
 
--- Prevent movement when ADS
 function GM:Move(ply, mv)
+    -- Block all movement when in weapon ready (ADS) mode
     if ply.ERV_WeaponReady then
         mv:SetForwardSpeed(0)
         mv:SetSideSpeed(0)
         mv:SetUpSpeed(0)
         return true
     end
+
+    -- Prevent walking off high ledges
+    local heightThreshold = 96
+    local pos = ply:GetPos()
+    local fwd = mv:GetMoveAngles():Forward() * 20
+    local checkPos = pos + fwd
+
+    local tr = util.TraceLine({
+        start = checkPos + Vector(0, 0, 5),
+        endpos = checkPos - Vector(0, 0, heightThreshold),
+        filter = ply
+    })
+
+    if not tr.Hit then
+        -- Visual marker for drop point
+        debugoverlay.Box(checkPos, Vector(-2, -2, -2), Vector(2, 2, 2), 0.1, Color(255, 0, 0))
+
+        -- Try to draw a short line representing the edge (based on last valid trace)
+        local lastGroundTrace = util.TraceLine({
+            start = pos + Vector(0, 0, 5),
+            endpos = pos - Vector(0, 0, heightThreshold),
+            filter = ply
+        })
+
+        if lastGroundTrace.Hit then
+            local edgeDir = lastGroundTrace.HitNormal:Cross(Vector(0, 0, 1)) * 20
+            debugoverlay.Line(lastGroundTrace.HitPos - edgeDir, lastGroundTrace.HitPos + edgeDir, 0.1, Color(255, 255, 0), true)
+        end
+
+        -- Block movement
+        mv:SetForwardSpeed(0)
+        mv:SetSideSpeed(0)
+        mv:SetUpSpeed(0)
+        return true
+    end
+
+    -- Disable strafing while running
+    local vel = mv:GetVelocity()
+    local speed = vel:Length2D()
+
+    local walkSpeed = ply:GetWalkSpeed()
+    local runSpeed = ply:GetRunSpeed()
+
+    local moving = speed > 1
+    if moving and (speed >= walkSpeed + 5) then
+        mv:SetSideSpeed(0)
+    end
 end
+
+
 
 -- Server-side animation control
 function GM:CalcMainActivity(ply, velocity)
@@ -82,6 +131,8 @@ function GM:CalcMainActivity(ply, velocity)
         else
             return ACT_HL2MP_IDLE_AR2, -1
         end
+    else
+        return ACT_IDLE
     end
 end
 
