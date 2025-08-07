@@ -8,6 +8,7 @@ include("modules/client/erv_laser.lua")
 
 include("shared.lua")
 
+weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
 
 
 -- Hide the first-person viewmodel

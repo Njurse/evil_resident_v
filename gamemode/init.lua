@@ -6,6 +6,7 @@ AddCSLuaFile("shared.lua")
 -- Register network messages
 util.AddNetworkString("ERV_QTEStart")
 util.AddNetworkString("ERV_ReadyWeapon")
+weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
 
 -- Ensure correct player model & animations
 function GM:PlayerSetModel(ply)

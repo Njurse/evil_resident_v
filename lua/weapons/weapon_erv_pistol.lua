@@ -8,7 +8,7 @@ SWEP.Spawnable = true
 SWEP.AdminOnly = false
 
 SWEP.Base = "weapon_base"
-SWEP.Category = "ERV"
+SWEP.Category = "Evil Resident V"
 
 SWEP.UseHands = true
 SWEP.ViewModel = "models/weapons/c_pistol.mdl"
