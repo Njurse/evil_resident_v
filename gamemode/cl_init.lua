@@ -83,7 +83,7 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
         ZoomFOV    = NormalFOV * 0.95
         CurrentFOV = NormalFOV
     end
-    CurrentFOV = Lerp(FrameTime() * 10, CurrentFOV, IsWeaponReady and ZoomFOV or NormalFOV)
+    CurrentFOV = Lerp(FrameTime() * 30, CurrentFOV, IsWeaponReady and ZoomFOV or NormalFOV)
 
     -- 1) smooth your real pitch...
     SmoothedPitch = Lerp(FrameTime() * PitchSmoothingSpeed, SmoothedPitch, angles.p)
