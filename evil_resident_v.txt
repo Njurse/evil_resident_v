@@ -1,0 +1,10 @@
+"gamemode"
+{
+    "base"      "sandbox"
+    "title"     "Evil Resident V"
+    "menusystem"    "1"
+    "version"   "1.0"
+    "author"    "Nattdy"
+    "contact"   ""
+    "info"      "Resident Evil 5 Mechanics and Mercenaries Mode"
+}

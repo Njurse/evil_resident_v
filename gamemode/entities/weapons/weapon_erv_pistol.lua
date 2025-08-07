@@ -1,5 +1,7 @@
 AddCSLuaFile()
 
+local SWEP = {}
+
 SWEP.PrintName = "ERV Pistol"
 SWEP.Author = "Nattdy"
 SWEP.Instructions = "Left click to shoot."
@@ -15,18 +17,22 @@ SWEP.ViewModel = "models/weapons/c_pistol.mdl"
 SWEP.WorldModel = "models/weapons/w_pistol.mdl"
 SWEP.ViewModelFOV = 54
 
-SWEP.Primary.ClipSize = 12
-SWEP.Primary.DefaultClip = 24
-SWEP.Primary.Automatic = false
-SWEP.Primary.Ammo = "Pistol"
-SWEP.Primary.Delay = 0.4
-
-SWEP.Secondary.ClipSize = -1
-SWEP.Secondary.DefaultClip = -1
-SWEP.Secondary.Automatic = false
-SWEP.Secondary.Ammo = "none"
-
 SWEP.HoldType = "pistol"
+
+SWEP.Primary = {
+    ClipSize = 12,
+    DefaultClip = 24,
+    Automatic = false,
+    Ammo = "Pistol",
+    Delay = 0.4
+}
+
+SWEP.Secondary = {
+    ClipSize = -1,
+    DefaultClip = -1,
+    Automatic = false,
+    Ammo = "none"
+}
 
 function SWEP:Initialize()
     self:SetHoldType(self.HoldType)
@@ -42,5 +48,7 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:SecondaryAttack()
-    -- Optional: trigger ADS or a mode toggle
+    -- Optional: ADS or alternate function
 end
+
+return SWEP

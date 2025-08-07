@@ -28,8 +28,8 @@ hook.Add("CreateMove", "ERV_ThirdPersonCamControl", function(cmd)
 
     local viewOrigin = ply:GetPos() + Vector(0, 0, 64)
     local yawAng = Angle(0, camAng.y, 0)
-    local distBehind = CameraState == "ads" and 35 or 55
-    local camOffset = yawAng:Forward() * -distBehind + yawAng:Right() * -25
+    local distBehind = CameraState == "ads" and 45 or 55
+    local camOffset = yawAng:Forward() * -distBehind + yawAng:Right() * 30
     local camPos = viewOrigin + camOffset
 
     local trace = util.TraceLine({

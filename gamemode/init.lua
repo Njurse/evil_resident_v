@@ -139,9 +139,9 @@ function GM:CalcMainActivity(ply, velocity)
     -- Override hold type based on weapon ready state
     if IsValid(wep) then
         if ply.ERV_WeaponReady then
-            wep:SetHoldType("ar2")
+            wep:SetHoldType("pistol")
         else
-            wep:SetHoldType("passive")
+            wep:SetHoldType("normal")
         end
     end
 

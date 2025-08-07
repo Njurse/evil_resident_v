@@ -2,14 +2,11 @@
 AddCSLuaFile("modules/client/erv_hud.lua")
 AddCSLuaFile("modules/client/erv_laser.lua")
 
--- Then run them on the client
+include("shared.lua")
 include("modules/client/erv_hud.lua")
 include("modules/client/erv_laser.lua")
 
-include("shared.lua")
-
 weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
-
 
 -- Hide the first-person viewmodel
 hook.Add("InitPostEntity", "ERV_HideViewModels", function()
@@ -61,38 +58,21 @@ hook.Add("CreateMove", "ERV_ThirdPersonCamControl", function(cmd)
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
 
-    -- Rotate camera when ADS
     if IsWeaponReady then
+        -- Custom camera rotation while aiming
         camAng.y = camAng.y + cmd:GetMouseX() * 0.022
         camAng.p = math.Clamp(camAng.p - cmd:GetMouseY() * 0.022, minPitch, maxPitch)
-        cmd:SetViewAngles(camAng)
     else
+        -- Reset camAng when not aiming to stay in sync
         camAng = cmd:GetViewAngles()
     end
-
-    -- Trace from camera to world
-    local viewOrigin = ply:GetPos() + Vector(0, 0, 64) -- camera height
-    local yawAng = Angle(0, camAng.y, 0)
-    local distBehind = IsWeaponReady and 35 or 55
-    local camOffset = yawAng:Forward() * -distBehind + yawAng:Right() * -25
-    local camPos = viewOrigin + camOffset
-
-    local trace = util.TraceLine({
-        start = camPos,
-        endpos = camPos + camAng:Forward() * 10000,
-        filter = ply
-    })
-
-    -- Face the hit position horizontally
-    local targetYaw = (trace.HitPos - ply:GetPos()):Angle().y
-    local fixedAngle = Angle(0, targetYaw, 0)
-    ply:SetEyeAngles(fixedAngle)
 end)
 
 -- persisted between frames:
 local SmoothedPitch        = 0
 local PitchSmoothingSpeed  = 3     -- lower = more sluggish follow
 local PitchRotationFactor  = 0.5   -- 1.0 = full rotation; 0.5 = half as much
+local SwayStrength         = 0     -- dynamic sway amount
 
 hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
     if not ply:Alive() then return end
@@ -100,7 +80,7 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
     -- initialize FOV once
     if not NormalFOV then
         NormalFOV  = 70
-        ZoomFOV    = NormalFOV * 0.9
+        ZoomFOV    = NormalFOV * 0.95
         CurrentFOV = NormalFOV
     end
     CurrentFOV = Lerp(FrameTime() * 10, CurrentFOV, IsWeaponReady and ZoomFOV or NormalFOV)
@@ -122,18 +102,23 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
     local verticalSlide= pitchNorm * 5
     local upOffset     = Vector(0, 0, baseHeight + verticalSlide)
 
-    -- optional sway
-    local speedFactor  = ply:GetVelocity():Length() / 200
-    local sway         = Vector(
-        math.sin(CurTime() * 15) * speedFactor,
-        math.sin(CurTime() * 13) * speedFactor,
-        0
-    )
-    local swayOffset   = yawAng:Right() * sway.y + yawAng:Forward() * sway.x
+    -- sway (only when moving and not aiming), driven by bone position
+    local velocity2D = ply:GetVelocity():Length2D()
+    local isMoving = velocity2D > 10 and not IsWeaponReady
+    SwayStrength = Lerp(FrameTime() * 5, SwayStrength, isMoving and 1 or 0)
+
+    local swayOffset = Vector(0,0,0)
+    if SwayStrength > 0 then
+        local boneIndex = ply:LookupBone("ValveBiped.Bip01_Pelvis")
+        if boneIndex then
+            local bonePos = ply:GetBonePosition(boneIndex)
+            local localOffset = bonePos - ply:GetPos()
+            swayOffset = Vector(localOffset.x, localOffset.y, 0) * 0.05 * SwayStrength
+        end
+    end
 
     return {
         origin     = pos + forwardOffset + rightOffset + upOffset + swayOffset,
-        -- use the reduced, smoothed pitch here:
         angles     = Angle(CameraPitch, angles.y, angles.r),
         fov        = CurrentFOV,
         drawviewer = true

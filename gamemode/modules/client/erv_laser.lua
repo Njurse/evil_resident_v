@@ -35,8 +35,8 @@ if CLIENT then
         -- Draw laser from muzzle to aim point
         render.SetMaterial(beamMat)
         render.StartBeam(2)
-            render.AddBeam(startPos, 1, 0, laserColor)
-            render.AddBeam(targetPos, 1, 1, laserColor)
+            render.AddBeam(startPos, 4, 0, laserColor)
+            render.AddBeam(targetPos, 4, 1, laserColor)
         render.EndBeam()
     end)
 
