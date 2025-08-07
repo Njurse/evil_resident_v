@@ -62,18 +62,23 @@ net.Receive("ERV_ReadyWeapon", function(len, ply)
 end)
 
 function GM:Move(ply, mv)
+    ply.ERV_LedgeBlocked = false -- reset per frame
+
     -- Block all movement when in weapon ready (ADS) mode
     if ply.ERV_WeaponReady then
-        mv:SetForwardSpeed(0)
+        mv:SetForwardSpeed(-10)
         mv:SetSideSpeed(0)
-        mv:SetUpSpeed(0)
+        local vel = mv:GetVelocity()
+        vel.z = -200
+        mv:SetVelocity(vel)
         return true
     end
 
     -- Prevent walking off high ledges
     local heightThreshold = 96
+    local traceDistance = 32 -- Increased detection radius
     local pos = ply:GetPos()
-    local fwd = mv:GetMoveAngles():Forward() * 20
+    local fwd = mv:GetMoveAngles():Forward() * traceDistance
     local checkPos = pos + fwd
 
     local tr = util.TraceLine({
@@ -83,25 +88,32 @@ function GM:Move(ply, mv)
     })
 
     if not tr.Hit then
+        ply.ERV_LedgeBlocked = true -- state flag set
+
         -- Visual marker for drop point
         debugoverlay.Box(checkPos, Vector(-2, -2, -2), Vector(2, 2, 2), 0.1, Color(255, 0, 0))
 
-        -- Try to draw a short line representing the edge (based on last valid trace)
-        local lastGroundTrace = util.TraceLine({
+        -- Use the wall or ledge surface to push the player along their movement direction
+        local wallTrace = util.TraceLine({
             start = pos + Vector(0, 0, 5),
             endpos = pos - Vector(0, 0, heightThreshold),
             filter = ply
         })
 
-        if lastGroundTrace.Hit then
-            local edgeDir = lastGroundTrace.HitNormal:Cross(Vector(0, 0, 1)) * 20
-            debugoverlay.Line(lastGroundTrace.HitPos - edgeDir, lastGroundTrace.HitPos + edgeDir, 0.1, Color(255, 255, 0), true)
+        if wallTrace.Hit then
+            local wallNormal = wallTrace.HitNormal:GetNormalized()
+            local moveDir = mv:GetVelocity():GetNormalized()
+            local slideDir = moveDir - wallNormal * moveDir:Dot(wallNormal)
+            local pushVelocity = slideDir:GetNormalized() * 100
+            pushVelocity.z = -100
+            mv:SetVelocity(pushVelocity)
+
+            local edgeDir = wallTrace.HitNormal:Cross(Vector(0, 0, 1)) * 20
+            debugoverlay.Line(wallTrace.HitPos - edgeDir, wallTrace.HitPos + edgeDir, 0.1, Color(255, 255, 0), true)
         end
 
-        -- Block movement
         mv:SetForwardSpeed(0)
         mv:SetSideSpeed(0)
-        mv:SetUpSpeed(0)
         return true
     end
 
@@ -118,26 +130,39 @@ function GM:Move(ply, mv)
     end
 end
 
-
-
 -- Server-side animation control
 function GM:CalcMainActivity(ply, velocity)
+    local wep = ply:GetActiveWeapon()
+    local hold = IsValid(wep) and wep:GetHoldType() or ""
+
+    -- Override hold type based on weapon ready state
+    if IsValid(wep) then
+        if ply.ERV_WeaponReady then
+            wep:SetHoldType("ar2")
+        else
+            wep:SetHoldType("passive")
+        end
+    end
+
+    -- Ledge-blocked idle animation
+    if ply.ERV_LedgeBlocked then
+        return ACT_HL2MP_IDLE_PASSIVE, -1
+    end
+
     if ply.ERV_WeaponReady then
-        local wep = ply:GetActiveWeapon()
-        local hold = IsValid(wep) and wep:GetHoldType() or ""
         local onehand = {pistol=true, smg=true, knife=true, melee=true, grenade=true, revolver=true}
         if onehand[hold] then
             return ACT_HL2MP_IDLE_PISTOL, -1
         else
             return ACT_HL2MP_IDLE_AR2, -1
         end
-    else
-        return ACT_IDLE
     end
+
+    return ACT_HL2MP_IDLE_PASSIVE
 end
 
 function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
-    if ply.ERV_WeaponReady then
+    if ply.ERV_WeaponReady or velocity:Length2DSqr() < 1 or ply.ERV_LedgeBlocked then
         ply:SetPlaybackRate(0)
         return true
     end
