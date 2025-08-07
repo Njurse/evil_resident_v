@@ -1,9 +1,0 @@
-"evil_resident_v"
-{
-    "base"       "base"  
-    "title"      "Evil Resident V"
-    "maps"       "^erv_"
-    "category"   "other"
-    "menusystem" "1"
-    // "workshopid" "123456789"  <-- add this if you upload to Workshop
-}
