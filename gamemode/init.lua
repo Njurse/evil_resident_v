@@ -76,17 +76,20 @@ function GM:Move(ply, mv)
     end
 
     -- Prevent walking off high ledges
-    local heightThreshold = 96
+    local heightThreshold = 32
     local traceDistance = 32 -- Increased detection radius
     local pos = ply:GetPos()
     local fwd = mv:GetMoveAngles():Forward() * traceDistance
     local checkPos = pos + fwd
 
-    local tr = util.TraceLine({
+    local tr = util.TraceHull({
         start = checkPos + Vector(0, 0, 5),
         endpos = checkPos - Vector(0, 0, heightThreshold),
+        mins = Vector(-8, -8, 0),   -- hull size X/Y (adjust as needed)
+        maxs = Vector(8, 8, 1),     -- slightly above ground to avoid snagging
         filter = ply
     })
+
 
     if not tr.Hit then
         ply.ERV_LedgeBlocked = true -- state flag set
@@ -95,9 +98,11 @@ function GM:Move(ply, mv)
         debugoverlay.Box(checkPos, Vector(-2, -2, -2), Vector(2, 2, 2), 0.1, Color(255, 0, 0))
 
         -- Use the wall or ledge surface to push the player along their movement direction
-        local wallTrace = util.TraceLine({
+        local wallTrace = util.TraceHull({
             start = pos + Vector(0, 0, 5),
             endpos = pos - Vector(0, 0, heightThreshold),
+            mins = Vector(-8, -8, 0),
+            maxs = Vector(8, 8, 1),
             filter = ply
         })
 
