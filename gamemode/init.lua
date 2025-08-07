@@ -15,7 +15,7 @@ end
 -- Override loadout: give only pistol
 function GM:PlayerLoadout(ply)
     ply:StripWeapons()
-    ply:Give("weapon_pistol")
+    ply:Give("weapon_erv_pistol")
     return true
 end
 
