@@ -1,12 +1,16 @@
--- Make sure clients download our HUD & laser modules
+-- Make sure clients download our HUD, laser, and camera modules
 AddCSLuaFile("modules/client/erv_hud.lua")
 AddCSLuaFile("modules/client/erv_laser.lua")
+AddCSLuaFile("modules/client/erv_camera.lua")
 
 include("shared.lua")
 include("modules/client/erv_hud.lua")
 include("modules/client/erv_laser.lua")
+local Camera = include("modules/client/erv_camera.lua")
 
+-- (Client-side weapon registration is fine; server also registers)
 weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
+weapons.Register(include("entities/weapons/weapon_erv_knife.lua"), "weapon_erv_knife")
 
 -- Hide the first-person viewmodel
 hook.Add("InitPostEntity", "ERV_HideViewModels", function()
@@ -18,72 +22,94 @@ hook.Add("ShouldDrawLocalPlayer", "ERV_DrawLocalPlayer", function()
     return true
 end)
 
--- QTE unified system (clientside only)
-local QTEActive = false
-local QTEType = nil
-local QTETarget = nil
-local QTEKey = KEY_SPACE
-local QTEText = ""
+---------------------------------------------------------------------
+-- QTE SYSTEM (unified) + MELEE (camera starts on key press)
+---------------------------------------------------------------------
+local QTEActive  = false
+local QTEType    = nil
+local QTETarget  = nil
+local QTEKey     = KEY_SPACE
+local QTEText    = ""
+local QTEEndsAt  = 0 -- fallback timeout
 
-local function StartQTE(qteType, target)
-    QTEType = qteType
-    QTETarget = target
-    QTEActive = true
+local function StartQTE(qteType, target, opts)
+    QTEType, QTETarget, QTEActive = qteType, target, true
+    QTEEndsAt = CurTime() + (opts and opts.duration or 2.0)
 
     if qteType == "vault" then
-        QTEKey = KEY_SPACE
-        QTEText = "Press SPACE to Vault"
+        QTEKey, QTEText = KEY_SPACE, "Press SPACE to Vault"
+        -- If you want a vault event camera immediately:
+        Camera.SetCameraState("event", "vault", {
+            duration      = opts and opts.duration or 0.8,
+            blockMovement = false
+        })
     elseif qteType == "melee" then
-        QTEKey = KEY_E
-        QTEText = "Press E to Melee"
+        QTEKey, QTEText = KEY_E, "Press E to Melee"
+        -- IMPORTANT: do NOT start camera here – wait for key press
     else
-        QTEKey = KEY_SPACE
-        QTEText = ""
+        QTEKey, QTEText = KEY_SPACE, ""
     end
 end
 
+-- Draw prompt
 hook.Add("HUDPaint", "ERV_QTEPrompt", function()
     if QTEActive and QTEText ~= "" then
         draw.SimpleTextOutlined(
-            QTEText,
-            "DermaLarge",
-            ScrW()/2,
-            ScrH()*0.8,
+            QTEText, "DermaLarge",
+            ScrW()/2, ScrH()*0.8,
             Color(255,255,255),
-            TEXT_ALIGN_CENTER,
-            TEXT_ALIGN_CENTER,
-            2,
-            Color(0,0,0,150)
+            TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER,
+            2, Color(0,0,0,150)
         )
     end
 end)
 
+-- Handle QTE key press
 hook.Add("Think", "ERV_QTEInput", function()
-    if QTEActive and input.IsKeyDown(QTEKey) then
+    if not QTEActive then return end
+    if CurTime() > QTEEndsAt then
+        QTEActive = false
+        QTEType, QTETarget = nil, nil
+        return
+    end
+
+    if input.IsKeyDown(QTEKey) then
         if QTEType == "vault" then
             chat.AddText(Color(0,255,0), "Vault sequence started! (placeholder)")
+
         elseif QTEType == "melee" and IsValid(QTETarget) then
+            -- Start the melee event camera NOW (on press)
+            local dur = 1.2
+            Camera.SetCameraState("event", "melee", {
+                duration      = dur,
+                -- Camera sits to the player's left; switch lookAt to "player" to look back at player chest
+                offset        = Vector(35, -45, 0), -- Forward, Right, Up in player yaw-space (negative Right = left)
+                lookAt        = "target",           -- "target" to track NPC; use "player" to track player's chest
+                trackTarget   = QTETarget,          -- entity to track when lookAt == "target"
+                blockMovement = true,               -- freeze movement during the melee
+                mouseScale    = 0.0,                -- freeze look
+                lockPitch     = false
+            })
+
+            -- Tell server to apply damage AND lock movement there too
             net.Start("ERV_MeleeAttack")
-            net.WriteEntity(QTETarget)
+                net.WriteEntity(QTETarget)
+                net.WriteFloat(dur) -- send duration so server can lock movement
             net.SendToServer()
         end
-        QTEActive = false
-        QTEType = nil
-        QTETarget = nil
+
+        QTEActive, QTEType, QTETarget = false, nil, nil
     end
 end)
 
--- Client-side melee detection for RE5-style prompt
+-- RE5-style melee detection (aim + range, prompt only)
 local meleeRange = 100
-local validMeleeNPCs = {
-    ["npc_citizen"] = true,
-    ["npc_zombie"] = true
-}
+local validMeleeNPCs = { ["npc_citizen"]=true, ["npc_zombie"]=true }
 
 hook.Add("Think", "ERV_CheckMeleeQTE", function()
     local ply = LocalPlayer()
     if not IsValid(ply) or not ply:Alive() then return end
-    if QTEActive then return end -- Don't overwrite another QTE
+    if QTEActive then return end -- don't overwrite another QTE
 
     local trace = util.TraceLine({
         start = ply:EyePos(),
@@ -91,18 +117,22 @@ hook.Add("Think", "ERV_CheckMeleeQTE", function()
         filter = ply
     })
 
-    if IsValid(trace.Entity) and trace.Entity:IsNPC() and validMeleeNPCs[trace.Entity:GetClass()] then
-        StartQTE("melee", trace.Entity)
+    local ent = trace.Entity
+    if IsValid(ent) and ent:IsNPC() and validMeleeNPCs[ent:GetClass()] then
+        StartQTE("melee", ent, { duration = 2.0 }) -- prompt lifetime only
     end
 end)
 
+---------------------------------------------------------------------
 -- ADS and fire control
+---------------------------------------------------------------------
 local IsWeaponReady = false
 local NormalFOV, ZoomFOV, CurrentFOV
 local camAng = Angle(0,0,0)
-local minPitch, maxPitch = -65, 65
+local minPitch, maxPitch = -35, 60
 
 hook.Add("PlayerBindPress", "ERV_ADS_and_FireControl", function(ply, bind, pressed)
+    -- Knife special handling is injected below; this block remains for general ADS
     if bind == "+attack2" then
         IsWeaponReady = pressed
         net.Start("ERV_ReadyWeapon")
@@ -115,32 +145,120 @@ hook.Add("PlayerBindPress", "ERV_ADS_and_FireControl", function(ply, bind, press
     end
 end)
 
+---------------------------------------------------------------------
+-- Knife toggle (Q) + knife-ready movement lock + RMB to hold ready, release to switch back
+---------------------------------------------------------------------
+local lastNonKnifeClass = nil
+local KnifeMovementLock = false
+
+local function ERV_SetReady(state)
+    IsWeaponReady = state and true or false
+    net.Start("ERV_ReadyWeapon")
+        net.WriteBool(IsWeaponReady)
+    net.SendToServer()
+end
+
+local function ERV_SwitchTo(classname)
+    if not classname or classname == "" then return end
+    RunConsoleCommand("use", classname)
+end
+
+local function ERV_SwitchToKnife()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+    local wep = ply:GetActiveWeapon()
+    if IsValid(wep) and wep:GetClass() ~= "weapon_erv_knife" then
+        lastNonKnifeClass = wep:GetClass()
+    end
+    ERV_SwitchTo("weapon_erv_knife")
+    -- Lock movement and enter ready mode while knife is up
+    KnifeMovementLock = true
+    ERV_SetReady(true)
+end
+
+local function ERV_SwitchBackFromKnife()
+    -- Unlock and exit ready
+    KnifeMovementLock = false
+    ERV_SetReady(false)
+    if lastNonKnifeClass then
+        ERV_SwitchTo(lastNonKnifeClass)
+    end
+end
+
+-- Q to swap between current weapon and knife
+hook.Add("Think", "ERV_KnifeSwap", function()
+    local ply = LocalPlayer()
+    if not IsValid(ply) or not ply:Alive() then return end
+
+    if input.IsKeyDown(KEY_Q) then
+        if not ply._ervKnifeSwapPressed then
+            ply._ervKnifeSwapPressed = true
+            local wep = ply:GetActiveWeapon()
+            if IsValid(wep) and wep:GetClass() == "weapon_erv_knife" then
+                ERV_SwitchBackFromKnife()
+            else
+                ERV_SwitchToKnife()
+            end
+        end
+    else
+        ply._ervKnifeSwapPressed = false
+    end
+end)
+
+-- Override ADS handling for knife: hold RMB to keep ready; release to swap back
+hook.Add("PlayerBindPress", "ERV_KnifeReadyHold", function(ply, bind, pressed)
+    local wep = IsValid(ply) and ply:GetActiveWeapon() or nil
+    if not (IsValid(wep) and wep:GetClass() == "weapon_erv_knife") then return end
+    if bind ~= "+attack2" then return end
+
+    if pressed then
+        KnifeMovementLock = true
+        ERV_SetReady(true)
+    else
+        -- Released: switch back to last weapon
+        ERV_SwitchBackFromKnife()
+    end
+    return true
+end)
+
+---------------------------------------------------------------------
+-- Camera handling (CreateMove + CalcView)
+---------------------------------------------------------------------
+-- persisted between frames:
+local SmoothedPitch        = 0
+local PitchSmoothingSpeed  = 2     -- lower = more sluggish follow
+local PitchRotationFactor  = 0.3   -- 1.0 = full rotation; 0.5 = half as much
+local SwayStrength         = 0     -- dynamic sway amount
+
 hook.Add("CreateMove", "ERV_ThirdPersonCamControl", function(cmd)
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
 
+    -- Event camera (movement/aim damp) handled centrally by camera module
+    if Camera and Camera.ApplyEventMove and Camera.ApplyEventMove(cmd, camAng) then
+        return
+    end
+
+    -- Hard lock movement when knife is equipped and in ready-lock
+    if KnifeMovementLock then
+        cmd:ClearMovement()
+    end
+
+    -- ADS/non-event logic
     if IsWeaponReady then
-        -- Custom camera rotation while aiming
         camAng.y = camAng.y + cmd:GetMouseX() * 0.022
         camAng.p = math.Clamp(camAng.p - cmd:GetMouseY() * 0.022, minPitch, maxPitch)
     else
-        -- Reset camAng when not aiming to stay in sync
         camAng = cmd:GetViewAngles()
     end
 end)
-
--- persisted between frames:
-local SmoothedPitch        = 0
-local PitchSmoothingSpeed  = 3     -- lower = more sluggish follow
-local PitchRotationFactor  = 0.5   -- 1.0 = full rotation; 0.5 = half as much
-local SwayStrength         = 0     -- dynamic sway amount
 
 hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
     if not ply:Alive() then return end
 
     -- initialize FOV once
     if not NormalFOV then
-        NormalFOV  = 70
+        NormalFOV  = 75
         ZoomFOV    = NormalFOV * 0.95
         CurrentFOV = NormalFOV
     end
@@ -152,36 +270,42 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
     local CameraPitch = SmoothedPitch * PitchRotationFactor
 
     -- build yaw-based offsets
-    local yawAng       = Angle(0, angles.y, 0)
-    local distBehind   = IsWeaponReady and 35 or 55
+    local yawAng        = Angle(0, angles.y, 0)
+    local distBehind    = IsWeaponReady and 35 or 55
     local forwardOffset = yawAng:Forward() * -distBehind
     local rightOffset   = yawAng:Right()   * -25
 
     -- vertical slide (also driven by the scaled pitch)
-    local baseHeight   = -5
-    local pitchNorm    = math.Clamp(CameraPitch / 35, -1, 1)
-    local verticalSlide= pitchNorm * 5
-    local upOffset     = Vector(0, 0, baseHeight + verticalSlide)
+    local baseHeight    = -5
+    local pitchNorm     = math.Clamp(CameraPitch / 35, -1, 1)
+    local verticalSlide = pitchNorm * 5
+    local upOffset      = Vector(0, 0, baseHeight + verticalSlide)
 
     -- sway (only when moving and not aiming), driven by bone position
     local velocity2D = ply:GetVelocity():Length2D()
-    local isMoving = velocity2D > 10 and not IsWeaponReady
-    SwayStrength = Lerp(FrameTime() * 5, SwayStrength, isMoving and 1 or 0)
+    local isMoving   = velocity2D > 10 and not IsWeaponReady
+    SwayStrength     = Lerp(FrameTime() * 5, SwayStrength, isMoving and 1 or 0)
 
     local swayOffset = Vector(0,0,0)
     if SwayStrength > 0 then
         local boneIndex = ply:LookupBone("ValveBiped.Bip01_Pelvis")
         if boneIndex then
-            local bonePos = ply:GetBonePosition(boneIndex)
-            local localOffset = bonePos - ply:GetPos()
-            swayOffset = Vector(localOffset.x, localOffset.y, 0) * 0.05 * SwayStrength
+            local bonePos    = ply:GetBonePosition(boneIndex)
+            local localOffset= (bonePos - ply:GetPos())
+            swayOffset       = Vector(localOffset.x, localOffset.y, 0) * 0.05 * SwayStrength
         end
+    end
+
+    -- Let the camera module override view for active events (tracks target or player's chest)
+    if Camera and Camera.ApplyEventView then
+        local v = Camera.ApplyEventView(ply, pos, CurrentFOV ~= nil and angles or angles, CurrentFOV or fov, yawAng, CameraPitch)
+        if v then return v end
     end
 
     return {
         origin     = pos + forwardOffset + rightOffset + upOffset + swayOffset,
         angles     = Angle(CameraPitch, angles.y, angles.r),
-        fov        = CurrentFOV,
+        fov        = CurrentFOV or fov,
         drawviewer = true
     }
 end)

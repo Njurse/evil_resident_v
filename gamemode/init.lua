@@ -10,6 +10,7 @@ util.AddNetworkString("ERV_ReadyWeapon")
 
 weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
 weapons.Register(include("entities/weapons/weapon_erv_knife.lua"), "weapon_erv_knife")
+
 -- Ensure correct player model & animations
 function GM:PlayerSetModel(ply)
     self.BaseClass.PlayerSetModel(self, ply)
@@ -19,6 +20,7 @@ end
 function GM:PlayerLoadout(ply)
     ply:StripWeapons()
     ply:Give("weapon_erv_pistol")
+    ply:Give("weapon_erv_knife")
     return true
 end
 
@@ -87,11 +89,10 @@ function GM:Move(ply, mv)
     local tr = util.TraceHull({
         start = checkPos + Vector(0, 0, 10),
         endpos = checkPos - Vector(0, 0, heightThreshold),
-        mins = Vector(-8, -8, 0),   -- hull size X/Y (adjust as needed)
-        maxs = Vector(8, 8, 1),     -- slightly above ground to avoid snagging
+        mins = Vector(-8, -8, 0),
+        maxs = Vector(8, 8, 1),
         filter = ply
     })
-
 
     if not tr.Hit then
         ply.ERV_LedgeBlocked = true -- state flag set
@@ -176,6 +177,7 @@ function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
     end
 end
 
+-- Melee damage handler
 net.Receive("ERV_MeleeAttack", function(len, ply)
     local target = net.ReadEntity()
     if not IsValid(target) or not target:IsNPC() then return end
@@ -190,5 +192,5 @@ net.Receive("ERV_MeleeAttack", function(len, ply)
 
     -- Optional knockback
     local dir = (target:GetPos() - ply:GetPos()):GetNormalized()
-    target:SetVelocity(dir * 300 + Vector(0, 0, 100))
+    target:SetVelocity(dir * 300 + Vector(0, 0, 40))
 end)

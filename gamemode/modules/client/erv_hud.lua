@@ -44,7 +44,7 @@ if CLIENT then
 
         -- Position and sizes
         local w, h = ScrW(), ScrH()
-        local centerX, centerY = w * 0.15, h - 150
+        local centerX, centerY = w * 0.15, h - 200
         local radius = 100
         local thickness = 20
         local segments = 60
@@ -58,9 +58,9 @@ if CLIENT then
 
         -- Background ring
         for i = 0, segments - 1 do
-            local ang1 = startAng + (arcRange / segments) * i
-            local ang2 = startAng + (arcRange / segments) * (i + 1)
-            DrawArcSection(centerX, centerY, radius, radius + thickness, ang1, ang2, Color(50, 50, 50, 150))
+            local ang1 = startAng + (360 / segments) * i
+            local ang2 = startAng + (360 / segments) * (i + 1)
+            DrawArcSection(centerX, centerY, 0, radius + (thickness * 2), ang1, ang2, Color(50, 50, 50, 250))
         end
 
         -- Health ring
