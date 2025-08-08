@@ -267,7 +267,7 @@ net.Receive("ERV_MeleeAttack", function(_, ply)
     if ply:GetPos():Distance(target:GetPos()) > 100 then return end
 
     -- Start a short QTE window to protect the gesture from overrides
-    ERV_SetQTE(ply, true, 0.8)
+    ERV_SetQTE(ply, true, 3)
 
     -- Play a melee gesture that layers on top of base activity
     ply:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_HL2MP_GESTURE_RANGE_ATTACK_MELEE2, true)
