@@ -2,9 +2,9 @@ AddCSLuaFile()
 
 local SWEP = {}
 
-SWEP.PrintName = "ERV Pistol"
+SWEP.PrintName = "ERV Knife"
 SWEP.Author = "Nattdy"
-SWEP.Instructions = "Left click to shoot."
+SWEP.Instructions = "To do: implement"
 
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -17,7 +17,7 @@ SWEP.ViewModel = "models/weapons/c_pistol.mdl"
 SWEP.WorldModel = "models/weapons/w_pistol.mdl"
 SWEP.ViewModelFOV = 54
 
-SWEP.HoldType = "pistol"
+SWEP.HoldType = "knife"
 
 SWEP.Primary = {
     ClipSize = 12,

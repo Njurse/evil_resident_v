@@ -6,11 +6,19 @@ print("[ERV Laser] Module Loaded")
 if CLIENT then
     local beamMat = Material("effects/laser1")
     local laserColor = Color(255, 0, 0, 255)
+
     hook.Add("PostDrawTranslucentRenderables", "ERV_DrawLaser", function()
         local ply = LocalPlayer()
         if not IsValid(ply) or not ply:Alive() then return end
+
         local wep = ply:GetActiveWeapon()
         if not IsValid(wep) then return end
+
+        -- Skip drawing if hold type is normal, knife, or passive
+        local holdType = wep:GetHoldType()
+        if holdType == "normal" or holdType == "knife" or holdType == "passive" then
+            return
+        end
 
         -- Get muzzle position
         local attachID = wep:LookupAttachment("muzzle") or wep:LookupAttachment("1") or 1
@@ -25,19 +33,11 @@ if CLIENT then
 
         local trace = util.TraceLine({
             start = eyePos,
-            endpos = eyePos + aimDir * 10000,
-            filter = ply,
-            mask = MASK_SHOT_HULL
+            endpos = eyePos + aimDir * 8192,
+            filter = ply
         })
 
-        local targetPos = trace.HitPos
-
-        -- Draw laser from muzzle to aim point
         render.SetMaterial(beamMat)
-        render.StartBeam(2)
-            render.AddBeam(startPos, 4, 0, laserColor)
-            render.AddBeam(targetPos, 4, 1, laserColor)
-        render.EndBeam()
+        render.DrawBeam(startPos, trace.HitPos, 5.5, 0, 1, laserColor)
     end)
-
 end

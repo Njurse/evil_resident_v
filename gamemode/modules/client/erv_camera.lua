@@ -22,7 +22,10 @@ hook.Add("CreateMove", "ERV_ThirdPersonCamControl", function(cmd)
         camAng.y = camAng.y + cmd:GetMouseX() * 0.022
         camAng.p = math.Clamp(camAng.p + cmd:GetMouseY() * 0.022, minPitch, maxPitch)
         cmd:SetViewAngles(camAng)
+    elseif CameraState != "event"
+        camAng = cmd:GetViewAngles()
     else
+        -- To do: Implement localized override for camera angles and position when specified for certain events like melee finishers and ledge jumps
         camAng = cmd:GetViewAngles()
     end
 

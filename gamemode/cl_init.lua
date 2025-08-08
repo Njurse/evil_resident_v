@@ -18,20 +18,81 @@ hook.Add("ShouldDrawLocalPlayer", "ERV_DrawLocalPlayer", function()
     return true
 end)
 
--- QTE prompts
+-- QTE unified system (clientside only)
 local QTEActive = false
-net.Receive("ERV_QTEStart", function() QTEActive = true end)
+local QTEType = nil
+local QTETarget = nil
+local QTEKey = KEY_SPACE
+local QTEText = ""
+
+local function StartQTE(qteType, target)
+    QTEType = qteType
+    QTETarget = target
+    QTEActive = true
+
+    if qteType == "vault" then
+        QTEKey = KEY_SPACE
+        QTEText = "Press SPACE to Vault"
+    elseif qteType == "melee" then
+        QTEKey = KEY_E
+        QTEText = "Press E to Melee"
+    else
+        QTEKey = KEY_SPACE
+        QTEText = ""
+    end
+end
 
 hook.Add("HUDPaint", "ERV_QTEPrompt", function()
-    if QTEActive then
-        draw.SimpleText("Press SPACE to vault", "DermaLarge", ScrW()/2, ScrH()*0.8, Color(255,255,255), TEXT_ALIGN_CENTER)
+    if QTEActive and QTEText ~= "" then
+        draw.SimpleTextOutlined(
+            QTEText,
+            "DermaLarge",
+            ScrW()/2,
+            ScrH()*0.8,
+            Color(255,255,255),
+            TEXT_ALIGN_CENTER,
+            TEXT_ALIGN_CENTER,
+            2,
+            Color(0,0,0,150)
+        )
     end
 end)
 
 hook.Add("Think", "ERV_QTEInput", function()
-    if QTEActive and input.IsKeyDown(KEY_SPACE) then
+    if QTEActive and input.IsKeyDown(QTEKey) then
+        if QTEType == "vault" then
+            chat.AddText(Color(0,255,0), "Vault sequence started! (placeholder)")
+        elseif QTEType == "melee" and IsValid(QTETarget) then
+            net.Start("ERV_MeleeAttack")
+            net.WriteEntity(QTETarget)
+            net.SendToServer()
+        end
         QTEActive = false
-        chat.AddText(Color(0,255,0), "Vault sequence started! (placeholder)")
+        QTEType = nil
+        QTETarget = nil
+    end
+end)
+
+-- Client-side melee detection for RE5-style prompt
+local meleeRange = 100
+local validMeleeNPCs = {
+    ["npc_citizen"] = true,
+    ["npc_zombie"] = true
+}
+
+hook.Add("Think", "ERV_CheckMeleeQTE", function()
+    local ply = LocalPlayer()
+    if not IsValid(ply) or not ply:Alive() then return end
+    if QTEActive then return end -- Don't overwrite another QTE
+
+    local trace = util.TraceLine({
+        start = ply:EyePos(),
+        endpos = ply:EyePos() + ply:GetAimVector() * meleeRange,
+        filter = ply
+    })
+
+    if IsValid(trace.Entity) and trace.Entity:IsNPC() and validMeleeNPCs[trace.Entity:GetClass()] then
+        StartQTE("melee", trace.Entity)
     end
 end)
 

@@ -5,9 +5,11 @@ AddCSLuaFile("shared.lua")
 
 -- Register network messages
 util.AddNetworkString("ERV_QTEStart")
+util.AddNetworkString("ERV_MeleeAttack")
 util.AddNetworkString("ERV_ReadyWeapon")
-weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
 
+weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
+weapons.Register(include("entities/weapons/weapon_erv_knife.lua"), "weapon_erv_knife")
 -- Ensure correct player model & animations
 function GM:PlayerSetModel(ply)
     self.BaseClass.PlayerSetModel(self, ply)
@@ -83,7 +85,7 @@ function GM:Move(ply, mv)
     local checkPos = pos + fwd
 
     local tr = util.TraceHull({
-        start = checkPos + Vector(0, 0, 5),
+        start = checkPos + Vector(0, 0, 10),
         endpos = checkPos - Vector(0, 0, heightThreshold),
         mins = Vector(-8, -8, 0),   -- hull size X/Y (adjust as needed)
         maxs = Vector(8, 8, 1),     -- slightly above ground to avoid snagging
@@ -173,3 +175,20 @@ function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
         return true
     end
 end
+
+net.Receive("ERV_MeleeAttack", function(len, ply)
+    local target = net.ReadEntity()
+    if not IsValid(target) or not target:IsNPC() then return end
+    if ply:GetPos():Distance(target:GetPos()) > 100 then return end
+
+    local dmg = DamageInfo()
+    dmg:SetAttacker(ply)
+    dmg:SetInflictor(ply:GetActiveWeapon() or ply)
+    dmg:SetDamage(50)
+    dmg:SetDamageType(DMG_CLUB)
+    target:TakeDamageInfo(dmg)
+
+    -- Optional knockback
+    local dir = (target:GetPos() - ply:GetPos()):GetNormalized()
+    target:SetVelocity(dir * 300 + Vector(0, 0, 100))
+end)
