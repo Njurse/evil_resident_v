@@ -13,8 +13,8 @@ SWEP.Base           = "weapon_base"
 SWEP.Category       = "Evil Resident V"
 
 SWEP.UseHands       = true
-SWEP.ViewModel      = "models/weapons/c_crowbar.mdl"
-SWEP.WorldModel     = "models/weapons/w_crowbar.mdl"
+SWEP.ViewModel      = "models/weapons/c_knife_t.mdl"
+SWEP.WorldModel     = "models/weapons/w_knife_t.mdl"
 SWEP.ViewModelFOV   = 54
 
 SWEP.HoldType       = "knife"

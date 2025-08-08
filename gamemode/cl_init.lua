@@ -258,8 +258,8 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
 
     -- initialize FOV once
     if not NormalFOV then
-        NormalFOV  = 75
-        ZoomFOV    = NormalFOV * 0.95
+        NormalFOV  = 60
+        ZoomFOV    = NormalFOV * 1.0
         CurrentFOV = NormalFOV
     end
     CurrentFOV = Lerp(FrameTime() * 30, CurrentFOV, IsWeaponReady and ZoomFOV or NormalFOV)
