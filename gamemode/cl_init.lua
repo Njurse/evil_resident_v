@@ -84,7 +84,7 @@ hook.Add("Think", "ERV_QTEInput", function()
                 duration      = dur,
                 -- Camera sits to the player's left; switch lookAt to "player" to look back at player chest
                 offset        = Vector(35, -45, 0), -- Forward, Right, Up in player yaw-space (negative Right = left)
-                lookAt        = "target",           -- "target" to track NPC; use "player" to track player's chest
+                lookAt        = "player",           -- "target" to track NPC; use "player" to track player's chest
                 trackTarget   = QTETarget,          -- entity to track when lookAt == "target"
                 blockMovement = true,               -- freeze movement during the melee
                 mouseScale    = 0.0,                -- freeze look
@@ -119,7 +119,7 @@ hook.Add("Think", "ERV_CheckMeleeQTE", function()
 
     local ent = trace.Entity
     if IsValid(ent) and ent:IsNPC() and validMeleeNPCs[ent:GetClass()] then
-        StartQTE("melee", ent, { duration = 2.0 }) -- prompt lifetime only
+        StartQTE("melee", ent, { duration = 5.0 }) -- prompt lifetime only
     end
 end)
 
@@ -253,7 +253,7 @@ hook.Add("CalcView", "ERV_ThirdPersonView", function(ply, pos, angles, fov)
 
     -- build yaw-based offsets
     local yawAng        = Angle(0, angles.y, 0)
-    local distBehind    = IsWeaponReady and 35 or 55
+    local distBehind    = IsWeaponReady and 50 or 55
     local forwardOffset = yawAng:Forward() * -distBehind
     local rightOffset   = yawAng:Right()   * -25
 

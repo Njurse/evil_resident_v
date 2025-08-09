@@ -48,20 +48,20 @@ if CLIENT then
         local radius = 100
         local thickness = 20
         local segments = 60
-
-        -- Shadow ring
-        for i = 0, segments - 1 do
-            local ang1 = startAng + (arcRange / segments) * i
-            local ang2 = startAng + (arcRange / segments) * (i + 1)
-            DrawArcSection(centerX, centerY, radius + 5, radius + thickness + 5, ang1, ang2, Color(0, 0, 0, 180))
-        end
-
         -- Background ring
         for i = 0, segments - 1 do
             local ang1 = startAng + (360 / segments) * i
             local ang2 = startAng + (360 / segments) * (i + 1)
-            DrawArcSection(centerX, centerY, 0, radius + (thickness * 2), ang1, ang2, Color(50, 50, 50, 250))
+            DrawArcSection(centerX, centerY, 0, radius + (thickness * 2), ang1, ang2, Color(20, 20, 20, 250))
         end
+        -- Shadow ring
+        for i = 0, segments - 1 do
+            local ang1 = startAng + (arcRange / segments) * i
+            local ang2 = startAng + (arcRange / segments) * (i + 1)
+            DrawArcSection(centerX, centerY, radius + 5, radius + thickness + 5, ang1, ang2, Color(50, 50, 50, 180))
+        end
+
+
 
         -- Health ring
         for i = 0, math.floor(segments * ratio) - 1 do

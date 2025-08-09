@@ -83,6 +83,7 @@ end
 -- Re-apply when weapon changes
 hook.Add("PlayerSwitchWeapon", "ERV_HoldtypeOnSwitch", function(ply, old, new)
     timer.Simple(0, function()
+        if ply.ERV_InQTE then return end
         if IsValid(ply) then ERV_ApplyHoldType(ply, false) end
     end)
 end)
@@ -236,9 +237,7 @@ function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
         ply:SetPoseParameter("move_x", 0)
         ply:SetPoseParameter("move_y", 0)
         return true
-    end
-
-    if ply.ERV_WeaponReady or velocity:Length2DSqr() < 1 or ply.ERV_LedgeBlocked then
+    elseif ply.ERV_WeaponReady or velocity:Length2DSqr() < 1 or ply.ERV_LedgeBlocked then
         ply:SetPlaybackRate(0)
         if ply.ERV_WeaponReady then
             ply:SetPoseParameter("move_x", 0)
@@ -257,13 +256,23 @@ net.Receive("ERV_MeleeAttack", function(_, ply)
     if not IsValid(target) or not target:IsNPC() then return end
     if ply:GetPos():Distance(target:GetPos()) > 100 then return end
 
-    -- Start a short QTE window to protect the gesture from overrides
-    ERV_SetQTE(ply, true, 3)
+    -- Keep this close to the actual gesture length
+    local dur = 0.9
 
-    -- Play a melee gesture that layers on top of base activity
-    ply:AnimRestartGesture(GESTURE_SLOT_ATTACK_AND_RELOAD, ACT_HL2MP_GESTURE_RANGE_ATTACK_MELEE2, true)
+    -- Start a QTE window that blocks holdtype/move overrides but still animates
+    ERV_SetQTE(ply, true, dur)
 
-    -- Damage
+    -- Make sure ADS isn’t fighting us
+    ply.ERV_WeaponReady = false
+    ply.ERV_InQTE = true
+    ply:SetNWBool("erv_ready", false)
+    -- Optional: guarantee the base keeps ticking even if something else zeroed it
+    ply:SetPlaybackRate(1)
+    -- Play melee gesture (layered, visible to others)
+    -- Two-hand shove
+    ply:AnimRestartGesture(GESTURE_SLOT_CUSTOM, ACT_GMOD_GESTURE_BOW, true)
+
+    -- Apply damage
     local dmg = DamageInfo()
     dmg:SetAttacker(ply)
     dmg:SetInflictor(ply:GetActiveWeapon() or ply)
@@ -273,5 +282,5 @@ net.Receive("ERV_MeleeAttack", function(_, ply)
 
     -- Knockback
     local dir = (target:GetPos() - ply:GetPos()):GetNormalized()
-    target:SetVelocity(dir * 300 + Vector(0, 0, 40))
+    --target:SetVelocity(dir * 300 + Vector(0, 0, 40))
 end)
