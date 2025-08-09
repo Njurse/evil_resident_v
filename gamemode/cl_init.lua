@@ -152,7 +152,10 @@ local lastNonKnifeClass = nil
 local KnifeMovementLock = false
 
 local function ERV_SetReady(state)
+    local ply = LocalPlayer()
     IsWeaponReady = state and true or false
+    if IsWeaponReady then
+    end
     net.Start("ERV_ReadyWeapon")
         net.WriteBool(IsWeaponReady)
     net.SendToServer()
@@ -205,22 +208,6 @@ hook.Add("Think", "ERV_KnifeSwap", function()
     end
 end)
 
--- Override ADS handling for knife: hold RMB to keep ready; release to swap back
-hook.Add("PlayerBindPress", "ERV_KnifeReadyHold", function(ply, bind, pressed)
-    local wep = IsValid(ply) and ply:GetActiveWeapon() or nil
-    if not (IsValid(wep) and wep:GetClass() == "weapon_erv_knife") then return end
-    if bind ~= "+attack2" then return end
-
-    if pressed then
-        KnifeMovementLock = true
-        ERV_SetReady(true)
-    else
-        -- Released: switch back to last weapon
-        ERV_SwitchBackFromKnife()
-    end
-    return true
-end)
-
 ---------------------------------------------------------------------
 -- Camera handling (CreateMove + CalcView)
 ---------------------------------------------------------------------
@@ -237,11 +224,6 @@ hook.Add("CreateMove", "ERV_ThirdPersonCamControl", function(cmd)
     -- Event camera (movement/aim damp) handled centrally by camera module
     if Camera and Camera.ApplyEventMove and Camera.ApplyEventMove(cmd, camAng) then
         return
-    end
-
-    -- Hard lock movement when knife is equipped and in ready-lock
-    if KnifeMovementLock then
-        cmd:ClearMovement()
     end
 
     -- ADS/non-event logic

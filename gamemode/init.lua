@@ -150,16 +150,11 @@ end)
 function GM:Move(ply, mv)
     ply.ERV_LedgeBlocked = false
 
-    -- Do not impose ADS locks while in QTE
-    if ply.ERV_InQTE then return end
-
-    -- ADS movement lock
-    if ply.ERV_WeaponReady then
-        mv:SetForwardSpeed(-10)
+    if ply.ERV_InQTE or ply.ERV_WeaponReady then
+        mv:SetForwardSpeed(0)
         mv:SetSideSpeed(0)
-        local vel = mv:GetVelocity()
-        vel.z = -200
-        mv:SetVelocity(vel)
+        mv:SetUpSpeed(0)
+        mv:SetVelocity(vector_origin)
         return true
     end
 
@@ -233,22 +228,18 @@ function GM:CalcMainActivity(ply, velocity)
         ply._erv_lastLedgePrint = CurTime()
         print("[ERV] Ledge detected for", ply)
     end
-
-    -- Choose a reasonable idle
-    if ply.ERV_WeaponReady then
-        return ACT_HL2MP_IDLE_PISTOL, -1
-    end
-    return ACT_HL2MP_IDLE_PASSIVE, -1
 end
 
 function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
-    -- Freeze playback during QTE so QTE gestures control animation timing
-    if ply.ERV_InQTE then return true end
+    if ply.ERV_InQTE then
+        ply:SetPlaybackRate(0)
+        ply:SetPoseParameter("move_x", 0)
+        ply:SetPoseParameter("move_y", 0)
+        return true
+    end
 
-    -- Idle freeze when aiming or nearly stationary (and not on a ledge slide)
     if ply.ERV_WeaponReady or velocity:Length2DSqr() < 1 or ply.ERV_LedgeBlocked then
         ply:SetPlaybackRate(0)
-        -- Pose params belong here, not in CalcMainActivity
         if ply.ERV_WeaponReady then
             ply:SetPoseParameter("move_x", 0)
             ply:SetPoseParameter("move_y", 0)

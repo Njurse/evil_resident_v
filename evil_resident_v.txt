@@ -7,4 +7,6 @@
     "author"    "Nattdy"
     "contact"   ""
     "info"      "Resident Evil 5 Mechanics and Mercenaries Mode"
+    "icon"        "icon24.png"       // 24x24 icon file
+    "background"  "background.png"   // banner image
 }

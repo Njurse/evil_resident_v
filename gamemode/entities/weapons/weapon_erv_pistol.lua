@@ -37,7 +37,9 @@ SWEP.Secondary = {
 function SWEP:Initialize()
     self:SetHoldType(self.HoldType)
 end
-
+function SWEP:Deploy()
+    return true
+end
 function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
 
