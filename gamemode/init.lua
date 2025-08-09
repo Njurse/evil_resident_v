@@ -25,7 +25,7 @@ util.AddNetworkString("ERV_ReadyWeapon")  -- client -> server: ADS toggle
 -- Weapons (keep your registrations)
 weapons.Register(include("entities/weapons/weapon_erv_pistol.lua"), "weapon_erv_pistol")
 weapons.Register(include("entities/weapons/weapon_erv_knife.lua"),  "weapon_erv_knife")
-
+if SERVER then util.AddNetworkString("ERV_MeleeAttack") end
 
 -------------------------------
 -- 2) QTE state helpers
@@ -233,12 +233,11 @@ end
 
 function GM:UpdateAnimation(ply, velocity, maxseqgroundspeed)
     if ply.ERV_InQTE then
-        ply:SetPlaybackRate(0)
+        --ply:SetPlaybackRate(0)
         ply:SetPoseParameter("move_x", 0)
         ply:SetPoseParameter("move_y", 0)
         return true
     elseif ply.ERV_WeaponReady or velocity:Length2DSqr() < 1 or ply.ERV_LedgeBlocked then
-        ply:SetPlaybackRate(0)
         if ply.ERV_WeaponReady then
             ply:SetPoseParameter("move_x", 0)
             ply:SetPoseParameter("move_y", 0)
@@ -255,7 +254,6 @@ net.Receive("ERV_MeleeAttack", function(_, ply)
     local target = net.ReadEntity()
     if not IsValid(target) or not target:IsNPC() then return end
     if ply:GetPos():Distance(target:GetPos()) > 100 then return end
-
     -- Keep this close to the actual gesture length
     local dur = 0.9
 
@@ -267,20 +265,18 @@ net.Receive("ERV_MeleeAttack", function(_, ply)
     ply.ERV_InQTE = true
     ply:SetNWBool("erv_ready", false)
     -- Optional: guarantee the base keeps ticking even if something else zeroed it
-    ply:SetPlaybackRate(1)
     -- Play melee gesture (layered, visible to others)
     -- Two-hand shove
-    ply:AnimRestartGesture(GESTURE_SLOT_CUSTOM, ACT_GMOD_GESTURE_BOW, true)
-
+    ply:SetActivity(ACT_GMOD_TAUNT_CHEER)
     -- Apply damage
     local dmg = DamageInfo()
     dmg:SetAttacker(ply)
-    dmg:SetInflictor(ply:GetActiveWeapon() or ply)
+    dmg:SetInflictor(ply)
     dmg:SetDamage(50)
     dmg:SetDamageType(DMG_CLUB)
     target:TakeDamageInfo(dmg)
 
     -- Knockback
     local dir = (target:GetPos() - ply:GetPos()):GetNormalized()
-    --target:SetVelocity(dir * 300 + Vector(0, 0, 40))
+    target:SetVelocity(dir * 300 + Vector(0, 0, 40))
 end)
